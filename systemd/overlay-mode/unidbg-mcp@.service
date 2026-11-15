@@ -1,0 +1,18 @@
+[Unit]
+Description=unidbg MCP Server (slot %i)
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=%h/unidbg/unidbg-android
+EnvironmentFile=%h/.config/unidbg/slot-%i.conf
+ExecStartPre=/bin/bash -c 'for i in {1..10}; do ss -ltn | grep -q ":$UNIDBG_PORT " || exit 0; sleep 1; done; exit 1'
+ExecStart=/bin/bash -lc '../mvnw exec:java -Dexec.mainClass=McpServer -Dexec.classpathScope=test -Dmaven.test.skip=false'
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

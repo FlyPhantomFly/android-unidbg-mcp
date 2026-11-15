@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.github.dragon</groupId>
+    <artifactId>unidbg-mcp</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>unidbg-mcp</name>
+    <description>Standalone MCP server for the unidbg Android emulator: emulator debugging (breakpoints, stepping, tracing, patching, memory/registers) exposed as Model Context Protocol tools.</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>11</maven.compiler.release>
+        <unidbg.version>e0d88a9</unidbg.version>
+    </properties>
+
+    <!-- unidbg is distributed via JitPack builds of github.com/zhkl0228/unidbg -->
+    <repositories>
+        <repository>
+            <id>jitpack</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <!-- unidbg Android emulator: pinned to upstream master commit e0d88a9
+             (JitPack publishes commit builds under com.github.USER.REPO) -->
+        <dependency>
+            <groupId>com.github.zhkl0228.unidbg</groupId>
+            <artifactId>unidbg-android</artifactId>
+            <version>${unidbg.version}</version>
+        </dependency>
+        <!-- unidbg-api declared directly: JitPack's generated POM is invalid, so
+             transitive resolution would drop it from the compile classpath -->
+        <dependency>
+            <groupId>com.github.zhkl0228.unidbg</groupId>
+            <artifactId>unidbg-api</artifactId>
+            <version>${unidbg.version}</version>
+        </dependency>
+        <!-- Dynarmic backend (not a transitive dep of unidbg-android; bundles the native lib) -->
+        <dependency>
+            <groupId>com.github.zhkl0228.unidbg</groupId>
+            <artifactId>unidbg-dynarmic</artifactId>
+            <version>${unidbg.version}</version>
+        </dependency>
+
+        <!--
+          Pinned explicitly: JitPack-generated POMs for the unidbg modules are
+          invalid, so their transitive dependencies do not resolve. These are
+          the exact versions unidbg v0.9.9's unidbg-api/pom.xml declares.
+        -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>2.0.65</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>2.21.0</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>1.21.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-collections4</artifactId>
+            <version>4.5.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.16</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.zhkl0228</groupId>
+            <artifactId>unicorn</artifactId>
+            <version>1.0.15</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.zhkl0228</groupId>
+            <artifactId>capstone</artifactId>
+            <version>3.1.8</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.zhkl0228</groupId>
+            <artifactId>keystone</artifactId>
+            <version>0.9.7</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.zhkl0228</groupId>
+            <artifactId>demumble</artifactId>
+            <version>1.0.4</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>unidbg-mcp</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>11</release>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>McpServer</mainClass>
+                                </transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <!-- strip signatures -->
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                                <!-- our vendored com.github.unidbg.mcp sources replace the ones inside unidbg-api -->
+                                <filter>
+                                    <artifact>com.github.zhkl0228:unidbg-api</artifact>
+                                    <excludes>
+                                        <exclude>com/github/unidbg/mcp/**</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
