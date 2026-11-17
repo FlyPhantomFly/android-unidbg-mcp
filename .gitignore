@@ -3,3 +3,7 @@ dependency-reduced-pom.xml
 *.iml
 .idea/
 .vscode/
+
+# local-only planning docs (do not publish)
+mcp_consideration.md
+mcp-playbook.md
