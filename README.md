@@ -1,24 +1,24 @@
-# unidbg-mcp
+# android-unidbg-mcp
 
 A [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server for
-[unidbg](https://github.com/zhkl0228/unidbg) — exposing the unidbg Android
-emulator to AI agents as native-debugging tools. An agent in OpenCode (or any
-MCP client) can load a native library, set breakpoints, single-step, trace,
-patch instructions, call functions, and inspect memory/registers
+[unidbg](https://github.com/zhkl0228/unidbg) that exposes the unidbg Android
+emulator to AI agents as native-debugging tools. From an agent in OpenCode (or
+any MCP client) you can load a native library, set breakpoints, single-step,
+trace, patch instructions, call functions, and inspect memory and registers
 interactively.
 
-**This repo is fully self-contained.** Cloning it and running one Maven build
-produces a runnable fat jar — no unidbg checkout, no overlay copying:
+Everything needed lives in this repo — one Maven build produces a runnable fat
+jar, with no unidbg checkout or overlay copying required:
 
 ```bash
-git clone <this repo> && cd unidbg-mcp
+git clone https://github.com/FlyPhantomFly/android-unidbg-mcp.git
+cd android-unidbg-mcp
 ./mvnw -B -DskipTests package          # first run pulls unidbg artifacts from JitPack
 java -jar target/unidbg-mcp.jar        # boots the emulator, serves MCP on http://localhost:9239/sse
 ```
 
-Verified equivalent to the source-built deployment: the same target library
-(`libb794.so`) loads at the same base address (`0x12000000`) through the
-standalone jar as through the original in-tree build.
+Compared against the source-built deployment: the same target library
+(`libb794.so`) loads at the same base address (`0x12000000`) either way.
 
 ```
 OpenCode session
@@ -33,26 +33,27 @@ OpenCode session
 ## Relationship to upstream unidbg
 
 - The MCP server layer — `com.github.unidbg.mcp` (`McpServer`, `McpTools`,
-  `McpSession`, `MergedInputStream`) — **already lives in upstream unidbg**
-  (authored by the upstream maintainer in March 2026, present in the `v0.9.9`
-  tag and at master `e0d88a9`). The compiled classes even ship inside the
+  `McpSession`, `MergedInputStream`) — already lives in upstream unidbg. The
+  upstream maintainer added it in March 2026; it is present in the `v0.9.9`
+  tag and at master `e0d88a9`, and the compiled classes ship inside the
   published JitPack artifacts.
 - What this repo adds on top:
-  - a **standalone Maven build** (fat jar, `java -jar` capable, pinned to
-    upstream master commit `e0d88a9` via JitPack)
-  - a **parameterized runner** (`src/main/java/McpServer.java`): config from
-    CLI args / `UNIDBG_LIB` / `UNIDBG_PORT` env, target-library auto-load +
-    `JNI_OnLoad`, and the queued-tool-call polling loop that makes a
-    persistent service possible
-  - the **multi-slot systemd deployment** and OpenCode integration docs
+  - a standalone Maven build: a fat jar you can run with `java -jar`, with
+    dependencies pinned to upstream master commit `e0d88a9` via JitPack
+  - a parameterized runner (`src/main/java/McpServer.java`): configuration
+    from CLI args or the `UNIDBG_LIB`/`UNIDBG_PORT` environment variables,
+    automatic target-library loading with `JNI_OnLoad`, and the
+    queued-tool-call polling loop that makes a persistent service possible
+  - the multi-slot systemd deployment and the OpenCode integration guide
 - The vendored MCP sources (`src/main/java/com/github/unidbg/mcp/`) are
-  identical to upstream master `e0d88a9` and replace the artifact copies at
-  build time (see the shade filter in `pom.xml`), so local MCP improvements
-  are possible without patching upstream.
-- Consequently there is **no need to PR the MCP layer itself upstream** — it
-  is already there. If you want to contribute, candidates are the runner and
-  the deployment documentation below, ideally as a small `unidbg-mcp` module
-  or example, after checking the open PRs/Issues for overlap.
+  identical to upstream at commit `e0d88a9` and replace the artifact copies
+  at build time (see the shade filter in `pom.xml`), so local MCP changes
+  don't require patching upstream.
+- That also means there is nothing to PR upstream for the MCP layer itself —
+  it is already there. If you do want to contribute, the runner and the
+  deployment guide are the natural candidates, ideally packaged as a small
+  `unidbg-mcp` module or example; check the open PRs and issues for overlap
+  first.
 
 ---
 
@@ -73,14 +74,16 @@ systemd/overlay-mode/unidbg-mcp@.service  Alternative unit (mvnw exec:java insid
 systemd/override.conf                  Drop-in pinning Java 21 for the service
 slots/slot-1.conf, slots/slot-2.conf   Per-slot config: port + target library path
 docs/unidbg-mcp-setup.md               Full annotated walkthrough (source-overlay path)
+LICENSE                                Apache-2.0, inherited from vendored upstream code
 ```
 
 The MCP protocol layer is implemented natively on top of the JDK's
-`com.sun.net.httpserver` (SSE + JSON-RPC, no MCP SDK). Dependencies are only
-what upstream declares (fastjson, commons-io, commons-codec,
-commons-collections4, slf4j, unicorn, capstone, keystone, demumble) — pinned
-explicitly in `pom.xml` because JitPack's generated POMs are invalid, which
-would otherwise drop them from transitive resolution.
+`com.sun.net.httpserver` — plain SSE and JSON-RPC, no MCP SDK. The only
+dependencies are the ones upstream already declares (fastjson, commons-io,
+commons-codec, commons-collections4, slf4j, unicorn, capstone, keystone,
+demumble). They are pinned explicitly in `pom.xml` because JitPack generates
+invalid POMs for these modules, which silently drops their transitive
+dependencies during resolution.
 
 ---
 
@@ -89,6 +92,11 @@ would otherwise drop them from transitive resolution.
 All tools are synchronous wrappers around a shared emulator. Call
 `check_connection` first — it reports architecture, backend, state, and module
 count. All addresses are hex strings (`"0x12000000"`); sizes are integers.
+
+This is the toolset the server exposes for an Android/ARM64 emulator. Running
+an iOS emulator additionally surfaces ObjC introspection tools
+(`dump_objc_class`, `dump_gpb_protobuf`), which call the Objective-C runtime
+and will modify registers and stack — see the operational notes below.
 
 ### Status & runtime
 
@@ -190,7 +198,7 @@ Requires `isRunning=false`. Arguments passed as an array of strings:
 
 ---
 
-## Example sessions (live output)
+## Example tool output
 
 ```
 check_connection
@@ -285,13 +293,14 @@ limited there; use breakpoints + `call_*` + `poll_events` as the primary loop.
 ### 1. Build
 
 ```bash
-cd ~/github/unidbg-mcp
+cd ~/github/android-unidbg-mcp
 JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./mvnw -B -DskipTests package
 # → target/unidbg-mcp.jar
 ```
 
-First run downloads unidbg from JitPack (pinned to upstream commit
-`e0d88a9`, so the binary is reproducible). Smoke-test:
+The first run downloads unidbg from JitPack. The dependency set is pinned to
+upstream commit `e0d88a9`, so every build pulls the same upstream binaries.
+Smoke-test it:
 
 ```bash
 UNIDBG_PORT=9299 UNIDBG_LIB=/path/to/target.so timeout 40 java -jar target/unidbg-mcp.jar
@@ -307,8 +316,9 @@ cp systemd/unidbg-mcp@.service ~/.config/systemd/user/
 cp systemd/override.conf ~/.config/systemd/user/unidbg-mcp@.service.d/
 ```
 
-The unit runs `java -jar %h/github/unidbg-mcp/target/unidbg-mcp.jar`, waits up
-to 10 s for the port to be free, and restarts forever (`Restart=always` +
+The unit runs `java -jar
+%h/github/android-unidbg-mcp/target/unidbg-mcp.jar`, waits up to 10 s for the
+port to be free, and restarts forever (`Restart=always` +
 `StartLimitIntervalSec=0`, which lives in `[Unit]`). The override pins
 `JAVA_HOME`/`PATH` to Java 21 — edit the paths if your JDK differs
 (`readlink -f $(which java)` minus `/bin/java`).
@@ -343,7 +353,8 @@ loginctl enable-linger $USER      # start at boot, survive logout
 
 Verify: `systemctl --user status unidbg-mcp@1.service`, `ss -ltnp | grep 9239`,
 and `journalctl --user -u unidbg-mcp@1.service -n 20` — expect
-`[McpServer] loaded … at 0x12000000` and `listening on http://localhost:9239/sse`.
+`[McpServer] loaded … at 0x…` (unidbg picks the base per run) and
+`listening on http://localhost:9239/sse`.
 
 ### 5. OpenCode client config
 
@@ -391,8 +402,8 @@ one never affects the others.
 
 ## Setup B — source overlay (alternative)
 
-Use this when the MCP must run against a **locally-built unidbg source tree**
-(e.g. `0.9.10-SNAPSHOT` with local patches) instead of the pinned JitPack
+Use this when the MCP has to run against a locally-built unidbg source tree
+(say, `0.9.10-SNAPSHOT` with local patches) instead of the pinned JitPack
 artifacts. This is how the currently deployed slot 1 runs.
 
 1. Clone unidbg and build: `git clone https://github.com/zhkl0228/unidbg.git
@@ -423,20 +434,21 @@ artifacts. This is how the currently deployed slot 1 runs.
 | Check port | `ss -ltnp \| grep 9239` |
 | Clear failed state | `systemctl --user reset-failed unidbg-mcp@N.service` |
 | Verify Java for the service | `systemctl --user show unidbg-mcp@N.service \| grep -i environment` |
-| Rebuild (standalone) | `cd ~/github/unidbg-mcp && JAVA_HOME=<jdk21> ./mvnw -B -DskipTests package && systemctl --user restart unidbg-mcp@N.service` |
+| Rebuild (standalone) | `cd ~/github/android-unidbg-mcp && JAVA_HOME=<jdk21> ./mvnw -B -DskipTests package && systemctl --user restart unidbg-mcp@N.service` |
 | Rebuild (overlay) | copy updated files into the unidbg checkout, `cd ~/unidbg/unidbg-android && ../mvnw test-compile -Dmaven.test.skip=false && systemctl --user restart unidbg-mcp@N.service` |
 | Change slot target | edit `~/.config/unidbg/slot-N.conf`, then restart the slot |
 
-> Current deployment: slot 1 (port 9239, `libb794.so`) runs in **overlay
-> mode** from `~/unidbg/unidbg-android`. The standalone jar built from this
-> repo is verified byte-equivalent in behavior (same load base/size) and can
-> take over by switching to the unit in `systemd/unidbg-mcp@.service`.
+> Current deployment: slot 1 (port 9239, `libb794.so`) runs in overlay mode
+> from `~/unidbg/unidbg-android`. The standalone jar built from this repo
+> behaves identically (verified: same load base and size for `libb794.so`);
+> moving a slot over to it is just a matter of installing the unit from
+> `systemd/unidbg-mcp@.service` instead.
 
 ---
 
 ## Credits
 
-- Emulator core **and the `com.github.unidbg.mcp` MCP server layer**:
+- Emulator core and the `com.github.unidbg.mcp` MCP server layer:
   [zhkl0228/unidbg](https://github.com/zhkl0228/unidbg), Apache-2.0 (see
   `LICENSE`). The vendored sources here are unmodified upstream code at
   commit `e0d88a9`.

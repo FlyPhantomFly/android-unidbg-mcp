@@ -7,10 +7,10 @@ StartLimitIntervalSec=0
 Type=simple
 # Standalone mode: run the self-contained fat jar built from this repo.
 # Build first:  JAVA_HOME=<jdk-21> ./mvnw -B -DskipTests package
-WorkingDirectory=%h/github/unidbg-mcp
+WorkingDirectory=%h/github/android-unidbg-mcp
 EnvironmentFile=%h/.config/unidbg/slot-%i.conf
 ExecStartPre=/bin/bash -c 'for i in {1..10}; do ss -ltn | grep -q ":$UNIDBG_PORT " || exit 0; sleep 1; done; exit 1'
-ExecStart=java -jar %h/github/unidbg-mcp/target/unidbg-mcp.jar
+ExecStart=java -jar %h/github/android-unidbg-mcp/target/unidbg-mcp.jar
 Restart=always
 RestartSec=5
 StandardOutput=journal
