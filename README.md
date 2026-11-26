@@ -35,20 +35,34 @@ OpenCode session
 - The MCP server layer — `com.github.unidbg.mcp` (`McpServer`, `McpTools`,
   `McpSession`, `MergedInputStream`) — already lives in upstream unidbg. The
   upstream maintainer added it in March 2026; it is present in the `v0.9.9`
-  tag and at master `e0d88a9`, and the compiled classes ship inside the
+  tag and at master `30911d7e`, and the compiled classes ship inside the
   published JitPack artifacts.
 - What this repo adds on top:
   - a standalone Maven build: a fat jar you can run with `java -jar`, with
-    dependencies pinned to upstream master commit `e0d88a9` via JitPack
+    dependencies pinned to upstream master commit `30911d7e` via JitPack
   - a parameterized runner (`src/main/java/McpServer.java`): configuration
     from CLI args or the `UNIDBG_LIB`/`UNIDBG_PORT` environment variables,
     automatic target-library loading with `JNI_OnLoad`, and the
     queued-tool-call polling loop that makes a persistent service possible
   - the multi-slot systemd deployment and the OpenCode integration guide
 - The vendored MCP sources (`src/main/java/com/github/unidbg/mcp/`) are
-  identical to upstream at commit `e0d88a9` and replace the artifact copies
+  identical to upstream at commit `30911d7e` and replace the artifact copies
   at build time (see the shade filter in `pom.xml`), so local MCP changes
   don't require patching upstream.
+- Pinned upstream delta (what `30911d7e` picks up over the old `e0d88a9`
+  pin — six commits, all emulator-side fixes, no MCP-layer or tool changes):
+  - JNI long-array support (`NewLongArray`, `Get/ReleaseLongArrayElements`,
+    `Get/SetLongArrayRegion`) and a 64-bit pointer-truncation fix in
+    `GetLongArrayElements` (#798, #802)
+  - overloaded JNI methods can now be found via the signed long symbol name
+    (`Java_…__…` with mangled argument types) (#801)
+  - `dlerror` buffer is cleared after a successful `dlopen`/`dlsym`, and
+    `dlerror()` returns NULL when no error is set (#799)
+  - `munmap` of a subset of an adjacent mapping keeps the remainder instead of
+    failing (#800)
+  - LogCat guest paths are contained under the emulator rootDir (#795)
+  - ELF modules without `DT_SYMTAB` (packed/obfuscated SOs) use an empty
+    symbol locator for relocations instead of failing to load (#793)
 - That also means there is nothing to PR upstream for the MCP layer itself —
   it is already there. If you do want to contribute, the runner and the
   deployment guide are the natural candidates, ideally packaged as a small
@@ -66,7 +80,7 @@ src/main/java/com/github/unidbg/mcp/   MCP server: McpServer.java (HTTP/SSE + di
 src/main/java/McpServer.java           Runner: config resolution, emulator boot, target
                                        .so load, MCP server start, tool-call polling loop
 pom.xml                                Standalone build: JitPack deps pinned to upstream
-                                       commit e0d88a9, shaded fat jar (Main-Class: McpServer)
+                                       commit 30911d7e, shaded fat jar (Main-Class: McpServer)
 mvnw, .mvn/                            Maven wrapper (3.9.9) — no Maven install needed
 systemd/unidbg-mcp@.service            systemd user template unit (standalone fat-jar mode)
 systemd/overlay-mode/unidbg-mcp@.service  Alternative unit (mvnw exec:java inside an unidbg
@@ -299,7 +313,7 @@ JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./mvnw -B -DskipTests package
 ```
 
 The first run downloads unidbg from JitPack. The dependency set is pinned to
-upstream commit `e0d88a9`, so every build pulls the same upstream binaries.
+upstream commit `30911d7e`, so every build pulls the same upstream binaries.
 Smoke-test it:
 
 ```bash
@@ -443,6 +457,13 @@ artifacts. This is how the currently deployed slot 1 runs.
 > behaves identically (verified: same load base and size for `libb794.so`);
 > moving a slot over to it is just a matter of installing the unit from
 > `systemd/unidbg-mcp@.service` instead.
+>
+> The unidbg checkout at `~/github/unidbg` (pinned upstream `30911d7e`, with
+> its own rewritten README) is the maintained overlay home going forward —
+> run `./mvnw install -DskipTests` there once to refresh the `0.9.10-SNAPSHOT`
+> module artifacts, then point the unit's `WorkingDirectory` at
+> `%h/github/unidbg/unidbg-android`. Its README is the deployment source of
+> truth; the `~/unidbg` checkout is the legacy copy.
 
 ---
 
@@ -451,6 +472,6 @@ artifacts. This is how the currently deployed slot 1 runs.
 - Emulator core and the `com.github.unidbg.mcp` MCP server layer:
   [zhkl0228/unidbg](https://github.com/zhkl0228/unidbg), Apache-2.0 (see
   `LICENSE`). The vendored sources here are unmodified upstream code at
-  commit `e0d88a9`.
+  commit `30911d7e`.
 - Parameterized runner, standalone build/deployment, multi-slot systemd
   setup, and documentation: this project.

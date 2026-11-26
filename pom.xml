@@ -15,7 +15,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>11</maven.compiler.release>
-        <unidbg.version>e0d88a9</unidbg.version>
+        <unidbg.version>30911d7e</unidbg.version>
     </properties>
 
     <!-- unidbg is distributed via JitPack builds of github.com/zhkl0228/unidbg -->
@@ -27,7 +27,7 @@
     </repositories>
 
     <dependencies>
-        <!-- unidbg Android emulator: pinned to upstream master commit e0d88a9
+        <!-- unidbg Android emulator: pinned to upstream master commit 30911d7e
              (JitPack publishes commit builds under com.github.USER.REPO) -->
         <dependency>
             <groupId>com.github.zhkl0228.unidbg</groupId>
@@ -51,7 +51,8 @@
         <!--
           Pinned explicitly: JitPack-generated POMs for the unidbg modules are
           invalid, so their transitive dependencies do not resolve. These are
-          the exact versions unidbg v0.9.9's unidbg-api/pom.xml declares.
+          the versions unidbg's poms declare at the pinned commit (slf4j was
+          bumped 2.0.16 -> 2.0.20 upstream, before the old e0d88a9 pin).
         -->
         <dependency>
             <groupId>com.alibaba</groupId>
@@ -76,7 +77,7 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>2.0.16</version>
+            <version>2.0.20</version>
         </dependency>
         <dependency>
             <groupId>com.github.zhkl0228</groupId>
